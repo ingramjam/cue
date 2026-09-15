@@ -1,0 +1,12 @@
+node_modules/
+.git/
+.vercel/
+.tanstack/
+.vite/
+dist/
+.vercel-output/
+.env
+.env.*
+.DS_Store
+screenshots/
+*.log
