@@ -92,12 +92,24 @@ export const createEvent = createServerFn({ method: "POST" })
     const name = (data.name ?? "").trim() || "Tonight";
     const slug = buildRoomSlug(name);
 
+    const slugColumn = await sql<{ exists: boolean }>`
+      select exists (
+        select 1 from information_schema.columns
+        where table_name = 'events' and column_name = 'slug'
+      ) as exists
+    `;
+    const hasSlugColumn = Boolean(slugColumn[0]?.exists);
+
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const rows = await sql.query<EventRow>(
-        `insert into events (code, slug, name) values ($1, $2, $3)
-         on conflict (code) do nothing
-         returning ${EVENT_COLUMNS}`,
-        [generateEventCode(), slug, name],
+        hasSlugColumn
+          ? `insert into events (code, slug, name) values ($1, $2, $3)
+             on conflict (code) do nothing
+             returning ${EVENT_COLUMNS}`
+          : `insert into events (code, name) values ($1, $2)
+             on conflict (code) do nothing
+             returning ${EVENT_COLUMNS}`,
+        hasSlugColumn ? [generateEventCode(), slug, name] : [generateEventCode(), name],
       );
       const row = rows[0];
       if (row) return toEventSummary(row);
@@ -111,8 +123,19 @@ export const getEvent = createServerFn({ method: "GET" })
     const { getSql } = await import("@/lib/db");
     const sql = await getSql();
     const lookup = data.code.trim();
+
+    const slugColumn = await sql<{ exists: boolean }>`
+      select exists (
+        select 1 from information_schema.columns
+        where table_name = 'events' and column_name = 'slug'
+      ) as exists
+    `;
+    const hasSlugColumn = Boolean(slugColumn[0]?.exists);
+
     const rows = await sql.query<EventRow>(
-      `select ${EVENT_COLUMNS} from events where lower(code) = lower($1) or lower(slug) = lower($1) limit 1`,
+      hasSlugColumn
+        ? `select ${EVENT_COLUMNS} from events where lower(code) = lower($1) or lower(slug) = lower($1) limit 1`
+        : `select ${EVENT_COLUMNS} from events where lower(code) = lower($1) limit 1`,
       [lookup],
     );
     return rows[0] ? toEventSummary(rows[0]) : null;
