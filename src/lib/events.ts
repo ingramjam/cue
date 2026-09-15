@@ -5,6 +5,7 @@ import { z } from "zod";
 export type EventSummary = {
   id: number;
   code: string;
+  slug: string | null;
   name: string;
   spotifyConnected: boolean;
   spotifyDisplayName: string | null;
@@ -14,18 +15,19 @@ export type EventSummary = {
 export type EventRow = {
   id: number;
   code: string;
+  slug: string | null;
   name: string;
   spotify_refresh_token: string | null;
   spotify_display_name: string | null;
   spotify_playlist_id: string | null;
 };
 
-const codeSchema = z
+const roomLookupSchema = z
   .string()
   .trim()
-  .min(4)
-  .max(16)
-  .transform((value) => value.toUpperCase());
+  .min(1)
+  .max(40)
+  .transform((value) => value.trim());
 
 // Ambiguous glyphs (0/O, 1/I/L) are omitted so a code read off a booth screen
 // can't be mistyped into someone else's room.
@@ -47,10 +49,31 @@ export function generateEventCode(): string {
   return code;
 }
 
+export function slugifyEventName(value: string | null | undefined): string {
+  const text = (value ?? "").trim().toLowerCase();
+  if (!text) return "night";
+
+  const slug = text
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 32);
+
+  return slug || "night";
+}
+
+export function buildRoomSlug(value: string | null | undefined, fallback = "night"): string {
+  const base = slugifyEventName(value || fallback);
+  if (base !== fallback || !value) return base;
+  return `${base}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
 export function toEventSummary(row: EventRow): EventSummary {
   return {
     id: Number(row.id),
     code: row.code,
+    slug: row.slug,
     name: row.name,
     spotifyConnected: Boolean(row.spotify_refresh_token),
     spotifyDisplayName: row.spotify_display_name,
@@ -59,21 +82,22 @@ export function toEventSummary(row: EventRow): EventSummary {
 }
 
 const EVENT_COLUMNS =
-  "id, code, name, spotify_refresh_token, spotify_display_name, spotify_playlist_id";
+  "id, code, slug, name, spotify_refresh_token, spotify_display_name, spotify_playlist_id";
 
 export const createEvent = createServerFn({ method: "POST" })
   .validator(z.object({ name: z.string().trim().max(60).optional() }))
   .handler(async ({ data }): Promise<EventSummary> => {
     const { getSql } = await import("@/lib/db");
     const sql = await getSql();
-    const name = data.name?.trim() || "Tonight";
+    const name = (data.name ?? "").trim() || "Tonight";
+    const slug = buildRoomSlug(name);
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const rows = await sql.query<EventRow>(
-        `insert into events (code, name) values ($1, $2)
+        `insert into events (code, slug, name) values ($1, $2, $3)
          on conflict (code) do nothing
          returning ${EVENT_COLUMNS}`,
-        [generateEventCode(), name],
+        [generateEventCode(), slug, name],
       );
       const row = rows[0];
       if (row) return toEventSummary(row);
@@ -82,13 +106,14 @@ export const createEvent = createServerFn({ method: "POST" })
   });
 
 export const getEvent = createServerFn({ method: "GET" })
-  .validator(z.object({ code: codeSchema }))
+  .validator(z.object({ code: roomLookupSchema }))
   .handler(async ({ data }): Promise<EventSummary | null> => {
     const { getSql } = await import("@/lib/db");
     const sql = await getSql();
+    const lookup = data.code.trim();
     const rows = await sql.query<EventRow>(
-      `select ${EVENT_COLUMNS} from events where code = $1`,
-      [data.code],
+      `select ${EVENT_COLUMNS} from events where lower(code) = lower($1) or lower(slug) = lower($1) limit 1`,
+      [lookup],
     );
     return rows[0] ? toEventSummary(rows[0]) : null;
   });

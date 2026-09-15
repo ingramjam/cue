@@ -18,6 +18,7 @@ export const Route = createFileRoute("/")({ component: Landing });
 function Landing() {
   const navigate = useNavigate();
   const [code, setCode] = useState("");
+  const [name, setName] = useState("");
   const [checkedStorage, setCheckedStorage] = useState(false);
 
   // Send a returning DJ straight back to their booth; the code stays invisible.
@@ -31,7 +32,7 @@ function Landing() {
   }, [navigate]);
 
   const start = useMutation({
-    mutationFn: () => createEvent({ data: {} }),
+    mutationFn: () => createEvent({ data: { name } }),
     onSuccess: (event) => {
       rememberEvent(event.code);
       void navigate({ to: "/booth/$code", params: { code: event.code } });
@@ -86,6 +87,19 @@ function Landing() {
           floor request and vote on what plays next.
         </p>
       </section>
+
+      <div className="flex max-w-md flex-col gap-2">
+        <Label htmlFor="event-name">Booth name</Label>
+        <Input
+          id="event-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="DJ Jimmy Jams"
+          maxLength={60}
+          autoComplete="off"
+          spellCheck={false}
+        />
+      </div>
 
       <Button
         type="button"

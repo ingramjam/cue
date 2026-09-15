@@ -1,6 +1,7 @@
 create table if not exists events (
   id serial primary key,
   code text not null unique,
+  slug text,
   name text not null default 'Tonight',
   created_at timestamptz not null default now(),
   spotify_client_id text,
@@ -12,6 +13,8 @@ create table if not exists events (
   spotify_playlist_id text,
   spotify_playlist_synced_key text
 );
+
+create unique index if not exists events_slug_idx on events (slug) where slug is not null;
 
 alter table songs add column if not exists event_id integer references events (id) on delete cascade;
 alter table songs add column if not exists spotify_track_id text;

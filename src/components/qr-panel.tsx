@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEvent } from "@/components/event-provider";
+import { buildPublicUrl, getShareBaseUrl } from "@/lib/site";
 
 export function QrPanel() {
   const event = useEvent();
@@ -12,8 +13,8 @@ export function QrPanel() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    setUrl(`${window.location.origin}/r/${event.code}`);
-  }, [event.code]);
+    setUrl(buildPublicUrl(`/r/${event.slug ?? event.code}`, getShareBaseUrl()));
+  }, [event.code, event.slug]);
 
   const qr = useMemo(() => {
     if (!url) return null;
@@ -79,6 +80,9 @@ export function QrPanel() {
           {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
           {copied ? "Copied" : "Copy request link"}
         </Button>
+        <p className="text-center text-xs text-subtle">
+          Public room link: {url || "loading..."}
+        </p>
         <p className="text-center text-xs text-subtle">
           Room code{" "}
           <span className="font-display tracking-[0.2em] text-muted-foreground">

@@ -10,3 +10,5 @@ dist/
 .DS_Store
 screenshots/
 *.log
+.vercel
+.neon

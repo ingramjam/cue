@@ -1,6 +1,7 @@
 import { readSpotifyRow } from "@/lib/spotify/auth.server";
 import { spotifyRequest } from "@/lib/spotify/client.server";
 import type { PushResult } from "@/lib/spotify/types";
+import { rankPlaylistUris } from "@/lib/spotify/playlist-rank";
 
 /** Spotify caps a replace-tracks call at 100 URIs. */
 const MAX_PLAYLIST_TRACKS = 100;
@@ -69,16 +70,7 @@ export async function syncPlaylist(eventId: number): Promise<void> {
       and spotify_uri is not null
   `;
 
-  const uris = rows
-    .map((row) => ({
-      uri: row.spotify_uri,
-      score:
-        Number(row.request_count) * 2 + Number(row.upvotes) - Number(row.downvotes),
-      id: Number(row.id),
-    }))
-    .sort((a, b) => (b.score !== a.score ? b.score - a.score : a.id - b.id))
-    .slice(0, MAX_PLAYLIST_TRACKS)
-    .map((row) => row.uri);
+  const uris = rankPlaylistUris(rows, MAX_PLAYLIST_TRACKS);
 
   const key = uris.join(",");
   const existing = await readSpotifyRow(eventId);

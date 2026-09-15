@@ -256,6 +256,13 @@ export const voteSong = createServerFn({ method: "POST" })
       where id = ${data.songId}
     `;
 
+    try {
+      const { syncPlaylist } = await import("@/lib/spotify/playlist.server");
+      await syncPlaylist(data.eventId);
+    } catch {
+      // Playlist sync is a convenience; keep room voting working even if Spotify is unavailable.
+    }
+
     return { ok: true as const };
   });
 
@@ -273,6 +280,14 @@ export const playSong = createServerFn({ method: "POST" })
       where id = ${data.songId} and event_id = ${data.eventId}
         and status in ('queued', 'playing')
     `;
+
+    try {
+      const { syncPlaylist } = await import("@/lib/spotify/playlist.server");
+      await syncPlaylist(data.eventId);
+    } catch {
+      // Playlist sync is a convenience; keep booth actions working even if Spotify is unavailable.
+    }
+
     return { ok: true as const };
   });
 
@@ -285,6 +300,14 @@ export const markPlayed = createServerFn({ method: "POST" })
       update songs set status = 'played'
       where id = ${data.songId} and event_id = ${data.eventId}
     `;
+
+    try {
+      const { syncPlaylist } = await import("@/lib/spotify/playlist.server");
+      await syncPlaylist(data.eventId);
+    } catch {
+      // Playlist sync is a convenience; keep booth actions working even if Spotify is unavailable.
+    }
+
     return { ok: true as const };
   });
 
@@ -296,5 +319,13 @@ export const removeSong = createServerFn({ method: "POST" })
     await sql`
       delete from songs where id = ${data.songId} and event_id = ${data.eventId}
     `;
+
+    try {
+      const { syncPlaylist } = await import("@/lib/spotify/playlist.server");
+      await syncPlaylist(data.eventId);
+    } catch {
+      // Playlist sync is a convenience; keep booth actions working even if Spotify is unavailable.
+    }
+
     return { ok: true as const };
   });
