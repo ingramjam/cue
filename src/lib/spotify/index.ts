@@ -4,6 +4,7 @@ import type {
   PushResult,
   SpotifyConfig,
   SpotifyDiagnostics,
+  SpotifyPlaylistOption,
   SpotifyTrack,
 } from "@/lib/spotify/types";
 
@@ -12,6 +13,7 @@ export type {
   PushResult,
   SpotifyConfig,
   SpotifyDiagnostics,
+  SpotifyPlaylistOption,
   SpotifyTrack,
 } from "@/lib/spotify/types";
 
@@ -190,4 +192,22 @@ export const syncSpotifyPlaylist = createServerFn({ method: "POST" })
     const { readSpotifyRow } = await import("@/lib/spotify/auth.server");
     const row = await readSpotifyRow(data.eventId);
     return { playlistId: row?.spotify_playlist_id ?? null };
+  });
+
+export const listSpotifyPlaylists = createServerFn({ method: "GET" })
+  .validator(eventSchema)
+  .handler(async ({ data }): Promise<SpotifyPlaylistOption[]> => {
+    const { listUserPlaylists } = await import("@/lib/spotify/playlist.server");
+    return listUserPlaylists(data.eventId);
+  });
+
+export const selectSpotifyPlaylist = createServerFn({ method: "POST" })
+  .validator(
+    eventSchema.extend({
+      playlistId: z.string().trim().min(1).max(128),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { importPlaylistIntoQueue } = await import("@/lib/spotify/playlist.server");
+    return importPlaylistIntoQueue(data.eventId, data.playlistId);
   });
