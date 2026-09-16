@@ -1,10 +1,9 @@
-import { normalizeKey } from "@/lib/normalize";
 import { readSpotifyRow } from "@/lib/spotify/auth.server";
 import {
   spotifyRequest,
-  toTrack,
   type RawTrack,
 } from "@/lib/spotify/client.server";
+import { toPlaylistSeedRows, type PlaylistSeedRow } from "@/lib/spotify/playlist-import";
 import type { PushResult, SpotifyPlaylistOption } from "@/lib/spotify/types";
 import { rankPlaylistUris } from "@/lib/spotify/playlist-rank";
 
@@ -33,44 +32,6 @@ type PlaylistDetails = {
   id?: string;
   name?: string;
 };
-
-type PlaylistSeedRow = {
-  title: string;
-  artist: string;
-  normalizedKey: string;
-  spotifyTrackId: string;
-  spotifyUri: string;
-  albumArtUrl: string | null;
-  durationMs: number;
-};
-
-export function toPlaylistSeedRows(
-  items: Array<{ track?: RawTrack | null }>,
-): PlaylistSeedRow[] {
-  const rows: PlaylistSeedRow[] = [];
-  const seen = new Set<string>();
-
-  for (const item of items) {
-    const track = toTrack(item.track);
-    if (!track) continue;
-
-    const normalizedKey = normalizeKey(track.title, track.artist);
-    if (!normalizedKey.split("|")[0] || seen.has(normalizedKey)) continue;
-
-    seen.add(normalizedKey);
-    rows.push({
-      title: track.title,
-      artist: track.artist,
-      normalizedKey,
-      spotifyTrackId: track.id,
-      spotifyUri: track.uri,
-      albumArtUrl: track.albumArtUrl,
-      durationMs: track.durationMs,
-    });
-  }
-
-  return rows;
-}
 
 export async function listUserPlaylists(eventId: number): Promise<SpotifyPlaylistOption[]> {
   const playlists: SpotifyPlaylistOption[] = [];

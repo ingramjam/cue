@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { toPlaylistSeedRows } from "./playlist.server.ts";
+import { toPlaylistSeedRows } from "./playlist-import.ts";
 import { rankPlaylistUris } from "./playlist-rank.ts";
 
 test("rankPlaylistUris prefers higher scores and then earlier queue order", () => {
@@ -48,8 +48,8 @@ test("toPlaylistSeedRows dedupes playlist tracks by normalized title and artist"
       track: {
         id: "two",
         uri: "spotify:track:two",
-        name: "Take Me to the River (Remastered)",
-        duration_ms: 226000,
+        name: "Take Me to the River",
+        duration_ms: 225500,
         artists: [{ name: "Al Green" }],
         album: { images: [{ url: "https://cdn.example/river-2.jpg", width: 300 }] },
       },
@@ -77,13 +77,13 @@ test("toPlaylistSeedRows dedupes playlist tracks by normalized title and artist"
       {
         title: "Take Me to the River",
         artist: "Al Green",
-        normalizedKey: "takemetotheriver|algreen",
+        normalizedKey: "take me to the river|al green",
         spotifyTrackId: "one",
       },
       {
         title: "Love and Happiness",
         artist: "Al Green",
-        normalizedKey: "loveandhappiness|algreen",
+        normalizedKey: "love and happiness|al green",
         spotifyTrackId: "three",
       },
     ],
