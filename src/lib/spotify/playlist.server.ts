@@ -1,5 +1,9 @@
 import { readSpotifyRow } from "@/lib/spotify/auth.server";
-import { spotifyRequest, toTrack } from "@/lib/spotify/client.server";
+import {
+  spotifyRequest,
+  toTrack,
+  type SpotifyResult,
+} from "@/lib/spotify/client.server";
 import type { PushResult } from "@/lib/spotify/types";
 import { normalizeKey } from "@/lib/normalize";
 import { rankPlaylistUris } from "@/lib/spotify/playlist-rank";
@@ -159,17 +163,34 @@ export async function importSelectedPlaylist(eventId: number): Promise<{ importe
       durationMs: number;
     }
   >();
+  type PlaylistTracksResponse = {
+    items?: Array<{
+      track?: {
+        id?: string | null;
+        uri?: string;
+        name?: string;
+        duration_ms?: number;
+        artists?: Array<{ name?: string }>;
+        album?: { images?: Array<{ url?: string; width?: number }> };
+      } | null;
+    }>;
+    next?: string | null;
+  };
 
-  let path = `/playlists/${encodeURIComponent(playlistId)}/tracks?limit=100`;
+  let path: string | null = `/playlists/${encodeURIComponent(playlistId)}/tracks?limit=100`;
   while (path && collected.size < MAX_PLAYLIST_TRACKS) {
-    const result = await spotifyRequest<{
-      items?: Array<{ track?: Parameters<typeof toTrack>[0] | null }>;
-      next?: string | null;
-    }>(eventId, path);
+    const result: SpotifyResult<PlaylistTracksResponse> =
+      await spotifyRequest<PlaylistTracksResponse>(eventId, path);
     if (!result.ok || !result.data) break;
 
     for (const item of result.data.items ?? []) {
-      const track = toTrack(item.track);
+      const raw = item.track
+        ? {
+            ...item.track,
+            id: item.track.id ?? null,
+          }
+        : null;
+      const track = toTrack(raw);
       if (!track) continue;
       const key = normalizeKey(track.title, track.artist);
       if (!key.split("|")[0]) continue;
@@ -185,7 +206,7 @@ export async function importSelectedPlaylist(eventId: number): Promise<{ importe
       if (collected.size >= MAX_PLAYLIST_TRACKS) break;
     }
 
-    const next = result.data.next;
+    const next: string | null = result.data.next ?? null;
     path = next?.startsWith("https://api.spotify.com/v1")
       ? next.slice("https://api.spotify.com/v1".length)
       : null;
