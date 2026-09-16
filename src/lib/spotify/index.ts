@@ -4,6 +4,7 @@ import type {
   PushResult,
   SpotifyConfig,
   SpotifyDiagnostics,
+  SpotifyPlaylist,
   SpotifyTrack,
 } from "@/lib/spotify/types";
 
@@ -12,6 +13,7 @@ export type {
   PushResult,
   SpotifyConfig,
   SpotifyDiagnostics,
+  SpotifyPlaylist,
   SpotifyTrack,
 } from "@/lib/spotify/types";
 
@@ -190,4 +192,50 @@ export const syncSpotifyPlaylist = createServerFn({ method: "POST" })
     const { readSpotifyRow } = await import("@/lib/spotify/auth.server");
     const row = await readSpotifyRow(data.eventId);
     return { playlistId: row?.spotify_playlist_id ?? null };
+  });
+
+export const listSpotifyPlaylists = createServerFn({ method: "GET" })
+  .validator(eventSchema)
+  .handler(async ({ data }): Promise<SpotifyPlaylist[]> => {
+    const { readSpotifyRow } = await import("@/lib/spotify/auth.server");
+    const { spotifyRequest } = await import("@/lib/spotify/client.server");
+    const row = await readSpotifyRow(data.eventId);
+    if (!row?.spotify_refresh_token) return [];
+
+    const result = await spotifyRequest<{
+      items?: Array<{
+        id?: string;
+        name?: string;
+        tracks?: { total?: number };
+        owner?: { display_name?: string | null; id?: string | null };
+      }>;
+    }>(data.eventId, "/me/playlists?limit=50");
+
+    if (!result.ok) return [];
+    return (result.data?.items ?? [])
+      .map((playlist) => ({
+        id: playlist.id ?? "",
+        name: playlist.name ?? "Untitled playlist",
+        trackCount: Number(playlist.tracks?.total ?? 0),
+        ownerName: playlist.owner?.display_name ?? playlist.owner?.id ?? null,
+      }))
+      .filter((playlist) => playlist.id);
+  });
+
+export const setSpotifyPlaylist = createServerFn({ method: "POST" })
+  .validator(
+    eventSchema.extend({
+      playlistId: z
+        .string()
+        .trim()
+        .min(1)
+        .max(128)
+        .regex(/^[a-zA-Z0-9]+$/, "Invalid playlist id.")
+        .nullable(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { setPlaylistId } = await import("@/lib/spotify/auth.server");
+    await setPlaylistId(data.eventId, data.playlistId);
+    return { ok: true as const };
   });

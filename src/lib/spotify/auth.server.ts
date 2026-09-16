@@ -51,6 +51,20 @@ export async function setClientId(eventId: number, clientId: string): Promise<vo
   await sql`update events set spotify_client_id = ${clientId} where id = ${eventId}`;
 }
 
+export async function setPlaylistId(
+  eventId: number,
+  playlistId: string | null,
+): Promise<void> {
+  const { getSql } = await import("@/lib/db");
+  const sql = await getSql();
+  await sql`
+    update events set
+      spotify_playlist_id = ${playlistId},
+      spotify_playlist_synced_key = null
+    where id = ${eventId}
+  `;
+}
+
 /** Mark the cached access token stale so the next read refreshes it. */
 export async function invalidateAccessToken(eventId: number): Promise<void> {
   const { getSql } = await import("@/lib/db");

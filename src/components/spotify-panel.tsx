@@ -25,7 +25,9 @@ import { useEvent } from "@/components/event-provider";
 import {
   disconnectSpotifyAccount,
   getSpotifyConfig,
+  listSpotifyPlaylists,
   saveSpotifyClientId,
+  setSpotifyPlaylist,
   spotifyDiagnostics,
   syncSpotifyPlaylist,
 } from "@/lib/spotify";
@@ -85,6 +87,7 @@ export function SpotifyPanel() {
     enabled: showDiagnostics,
     refetchInterval: showDiagnostics ? 5000 : false,
   });
+  const connected = config.data?.connected ?? false;
 
   const disconnect = useMutation({
     mutationFn: () => disconnectSpotifyAccount({ data: { eventId: event.id } }),
@@ -125,7 +128,25 @@ export function SpotifyPanel() {
       ),
   });
 
-  const connected = config.data?.connected ?? false;
+  const playlists = useQuery({
+    queryKey: ["spotify-playlists", event.id],
+    queryFn: () => listSpotifyPlaylists({ data: { eventId: event.id } }),
+    enabled: connected,
+  });
+
+  const selectPlaylist = useMutation({
+    mutationFn: (playlistId: string | null) =>
+      setSpotifyPlaylist({ data: { eventId: event.id, playlistId } }),
+    onSuccess: () => {
+      toast.success("Playlist selection updated.");
+      void queryClient.invalidateQueries({ queryKey: ["spotify-config", event.id] });
+      void queryClient.invalidateQueries({ queryKey: ["spotify-playlists", event.id] });
+      void queryClient.invalidateQueries({ queryKey: ["queue", event.id] });
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "Could not update playlist."),
+  });
+
   const uri = redirectUri;
 
   return (
@@ -189,6 +210,27 @@ export function SpotifyPanel() {
                 <Stethoscope className="size-4" />
                 {showDiagnostics ? "Hide" : "Diagnostics"}
               </Button>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="spotify-playlist-id">Playlist for this room</Label>
+              <select
+                id="spotify-playlist-id"
+                value={config.data?.playlistId ?? ""}
+                onChange={(e) => selectPlaylist.mutate(e.target.value || null)}
+                className="h-10 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                disabled={selectPlaylist.isPending || playlists.isLoading}
+              >
+                <option value="">Auto-create room playlist</option>
+                {(playlists.data ?? []).map((playlist) => (
+                  <option key={playlist.id} value={playlist.id}>
+                    {playlist.name} · {playlist.trackCount} tracks
+                    {playlist.ownerName ? ` · ${playlist.ownerName}` : ""}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-subtle">
+                The synced queue writes to this playlist and appears in On deck.
+              </p>
             </div>
 
             <p className="text-xs text-subtle">

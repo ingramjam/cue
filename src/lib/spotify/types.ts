@@ -30,6 +30,13 @@ export type SpotifyConfig = {
   scopes: string;
 };
 
+export type SpotifyPlaylist = {
+  id: string;
+  name: string;
+  trackCount: number;
+  ownerName: string | null;
+};
+
 export type SpotifyDiagnostics = {
   connected: boolean;
   status: number | null;

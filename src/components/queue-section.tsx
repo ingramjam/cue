@@ -40,7 +40,9 @@ export function QueueSection({
             Could not load the queue. Try again in a moment.
           </p>
         ) : (
-          <QueueList songs={queue} booth={booth} empty={empty} />
+          <div className={booth ? "max-h-[32rem] overflow-y-auto pr-1" : undefined}>
+            <QueueList songs={queue} booth={booth} empty={empty} />
+          </div>
         )}
       </div>
     </div>
