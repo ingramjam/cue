@@ -48,7 +48,7 @@ export function AppHeader({
       )}
       <Button asChild variant="outline" size="sm" className="shrink-0">
         <a href={VENMO_URL} target="_blank" rel="noopener noreferrer">
-          Tip the DJ
+          Just the Tip.
           <span className="hidden sm:inline">{VENMO_HANDLE}</span>
           <ExternalLink className="size-3.5 opacity-70" />
         </a>
