@@ -1,11 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Disc3, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/app-header";
 import { PageShell } from "@/components/page-shell";
-import { recallEvent, rememberEvent } from "@/components/event-provider";
+import { rememberEvent } from "@/components/event-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,17 +19,6 @@ function Landing() {
   const navigate = useNavigate();
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
-  const [checkedStorage, setCheckedStorage] = useState(false);
-
-  // Send a returning DJ straight back to their booth; the code stays invisible.
-  useEffect(() => {
-    const last = recallEvent();
-    if (last) {
-      void navigate({ to: "/booth/$code", params: { code: last } });
-      return;
-    }
-    setCheckedStorage(true);
-  }, [navigate]);
 
   const start = useMutation({
     mutationFn: () => createEvent({ data: { name } }),
@@ -63,16 +52,6 @@ function Landing() {
       return;
     }
     join.mutate(value);
-  }
-
-  if (!checkedStorage) {
-    return (
-      <PageShell>
-        <div className="flex min-h-[60vh] items-center justify-center">
-          <Loader2 className="size-5 animate-spin text-muted-foreground" />
-        </div>
-      </PageShell>
-    );
   }
 
   return (
