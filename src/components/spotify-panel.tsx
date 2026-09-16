@@ -25,7 +25,9 @@ import { useEvent } from "@/components/event-provider";
 import {
   disconnectSpotifyAccount,
   getSpotifyConfig,
+  listSpotifyPlaylists,
   saveSpotifyClientId,
+  selectSpotifyPlaylist,
   spotifyDiagnostics,
   syncSpotifyPlaylist,
 } from "@/lib/spotify";
@@ -86,6 +88,12 @@ export function SpotifyPanel() {
     refetchInterval: showDiagnostics ? 5000 : false,
   });
 
+  const playlists = useQuery({
+    queryKey: ["spotify-playlists", event.id],
+    queryFn: () => listSpotifyPlaylists({ data: { eventId: event.id } }),
+    enabled: connected,
+  });
+
   const disconnect = useMutation({
     mutationFn: () => disconnectSpotifyAccount({ data: { eventId: event.id } }),
     onSuccess: () => {
@@ -107,6 +115,23 @@ export function SpotifyPanel() {
     },
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : "Could not sync."),
+  });
+
+  const selectPlaylist = useMutation({
+    mutationFn: (playlistId: string) =>
+      selectSpotifyPlaylist({ data: { eventId: event.id, playlistId } }),
+    onSuccess: (result) => {
+      toast.success(
+        result.imported > 0
+          ? `Loaded ${result.imported} tracks from ${result.playlistName}.`
+          : `${result.playlistName} is now your room playlist.`,
+      );
+      void queryClient.invalidateQueries({ queryKey: ["spotify-config", event.id] });
+      void queryClient.invalidateQueries({ queryKey: ["spotify-playlists", event.id] });
+      void queryClient.invalidateQueries({ queryKey: ["queue", event.id] });
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "Could not load that playlist."),
   });
 
   const connect = useMutation({
@@ -189,6 +214,43 @@ export function SpotifyPanel() {
                 <Stethoscope className="size-4" />
                 {showDiagnostics ? "Hide" : "Diagnostics"}
               </Button>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="spotify-room-playlist">Playlist for this room</Label>
+              {playlists.isLoading ? (
+                <div className="h-10 animate-pulse rounded-lg bg-secondary" />
+              ) : playlists.data?.length ? (
+                <select
+                  id="spotify-room-playlist"
+                  className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={config.data?.playlistId ?? ""}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (!value || value === config.data?.playlistId) return;
+                    selectPlaylist.mutate(value);
+                  }}
+                  disabled={selectPlaylist.isPending}
+                >
+                  <option value="" disabled>
+                    Choose a playlist
+                  </option>
+                  {playlists.data.map((playlist) => (
+                    <option key={playlist.id} value={playlist.id}>
+                      {`${playlist.name} · ${playlist.trackCount} track${playlist.trackCount === 1 ? "" : "s"}${
+                        playlist.ownerName ? ` · ${playlist.ownerName}` : ""
+                      }`}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground">
+                  No Spotify playlists found on this account yet.
+                </p>
+              )}
+              <p className="text-xs text-subtle">
+                Selecting a playlist pulls its tracks into On deck so guests can vote.
+              </p>
             </div>
 
             <p className="text-xs text-subtle">

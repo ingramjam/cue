@@ -9,6 +9,13 @@ export type SpotifyTrack = {
   durationMs: number;
 };
 
+export type SpotifyPlaylistOption = {
+  id: string;
+  name: string;
+  trackCount: number;
+  ownerName: string | null;
+};
+
 export type LiveTrack = {
   trackId: string | null;
   title: string;
