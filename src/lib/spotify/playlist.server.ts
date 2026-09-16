@@ -1,6 +1,7 @@
 import { readSpotifyRow } from "@/lib/spotify/auth.server";
-import { spotifyRequest } from "@/lib/spotify/client.server";
+import { spotifyRequest, toTrack } from "@/lib/spotify/client.server";
 import type { PushResult } from "@/lib/spotify/types";
+import { normalizeKey } from "@/lib/normalize";
 import { rankPlaylistUris } from "@/lib/spotify/playlist-rank";
 
 /** Spotify caps a replace-tracks call at 100 URIs. */
@@ -140,4 +141,77 @@ export async function pushToSpotifyQueue(
     };
   }
   return { ok: false, reason: "error", message: result.message };
+}
+
+export async function importSelectedPlaylist(eventId: number): Promise<{ imported: number }> {
+  const existing = await readSpotifyRow(eventId);
+  const playlistId = existing?.spotify_playlist_id;
+  if (!existing?.spotify_refresh_token || !playlistId) return { imported: 0 };
+
+  const collected = new Map<
+    string,
+    {
+      title: string;
+      artist: string;
+      spotifyTrackId: string;
+      spotifyUri: string;
+      albumArtUrl: string | null;
+      durationMs: number;
+    }
+  >();
+
+  let path = `/playlists/${encodeURIComponent(playlistId)}/tracks?limit=100`;
+  while (path && collected.size < MAX_PLAYLIST_TRACKS) {
+    const result = await spotifyRequest<{
+      items?: Array<{ track?: Parameters<typeof toTrack>[0] | null }>;
+      next?: string | null;
+    }>(eventId, path);
+    if (!result.ok || !result.data) break;
+
+    for (const item of result.data.items ?? []) {
+      const track = toTrack(item.track);
+      if (!track) continue;
+      const key = normalizeKey(track.title, track.artist);
+      if (!key.split("|")[0]) continue;
+      if (collected.has(key)) continue;
+      collected.set(key, {
+        title: track.title,
+        artist: track.artist,
+        spotifyTrackId: track.id,
+        spotifyUri: track.uri,
+        albumArtUrl: track.albumArtUrl,
+        durationMs: track.durationMs,
+      });
+      if (collected.size >= MAX_PLAYLIST_TRACKS) break;
+    }
+
+    const next = result.data.next;
+    path = next?.startsWith("https://api.spotify.com/v1")
+      ? next.slice("https://api.spotify.com/v1".length)
+      : null;
+  }
+
+  const { getSql } = await import("@/lib/db");
+  const sql = await getSql();
+
+  for (const [key, track] of collected) {
+    await sql`
+      insert into songs (
+        event_id, title, artist, normalized_key,
+        spotify_track_id, spotify_uri, album_art_url, duration_ms
+      )
+      values (
+        ${eventId}, ${track.title}, ${track.artist}, ${key},
+        ${track.spotifyTrackId}, ${track.spotifyUri}, ${track.albumArtUrl}, ${track.durationMs}
+      )
+      on conflict (event_id, normalized_key) do update set
+        status = case when songs.status = 'played' then 'queued' else songs.status end,
+        spotify_track_id = coalesce(excluded.spotify_track_id, songs.spotify_track_id),
+        spotify_uri = coalesce(excluded.spotify_uri, songs.spotify_uri),
+        album_art_url = coalesce(excluded.album_art_url, songs.album_art_url),
+        duration_ms = coalesce(excluded.duration_ms, songs.duration_ms)
+    `;
+  }
+
+  return { imported: collected.size };
 }

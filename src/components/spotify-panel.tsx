@@ -137,8 +137,12 @@ export function SpotifyPanel() {
   const selectPlaylist = useMutation({
     mutationFn: (playlistId: string | null) =>
       setSpotifyPlaylist({ data: { eventId: event.id, playlistId } }),
-    onSuccess: () => {
-      toast.success("Playlist selection updated.");
+    onSuccess: (result) => {
+      toast.success(
+        result.imported > 0
+          ? `Playlist selected — added ${result.imported} tracks to On deck.`
+          : "Playlist selection updated.",
+      );
       void queryClient.invalidateQueries({ queryKey: ["spotify-config", event.id] });
       void queryClient.invalidateQueries({ queryKey: ["spotify-playlists", event.id] });
       void queryClient.invalidateQueries({ queryKey: ["queue", event.id] });
@@ -229,7 +233,7 @@ export function SpotifyPanel() {
                 ))}
               </select>
               <p className="text-xs text-subtle">
-                The synced queue writes to this playlist and appears in On deck.
+                Selecting a playlist pulls its tracks into On deck so guests can vote.
               </p>
             </div>
 

@@ -237,5 +237,8 @@ export const setSpotifyPlaylist = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { setPlaylistId } = await import("@/lib/spotify/auth.server");
     await setPlaylistId(data.eventId, data.playlistId);
-    return { ok: true as const };
+    if (!data.playlistId) return { ok: true as const, imported: 0 };
+    const { importSelectedPlaylist } = await import("@/lib/spotify/playlist.server");
+    const imported = await importSelectedPlaylist(data.eventId);
+    return { ok: true as const, imported: imported.imported };
   });
