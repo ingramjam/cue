@@ -12,3 +12,4 @@ screenshots/
 *.log
 .vercel
 .neon
+.grok/preview.pid
