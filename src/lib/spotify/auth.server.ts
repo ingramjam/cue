@@ -1,6 +1,7 @@
 const TOKEN_ENDPOINT = "https://accounts.spotify.com/api/token";
 
 export const SPOTIFY_SCOPES = [
+  "user-read-private",
   "user-read-currently-playing",
   "user-read-playback-state",
   "user-modify-playback-state",

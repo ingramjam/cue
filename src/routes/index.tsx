@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Disc3, Loader2 } from "lucide-react";
@@ -19,17 +19,11 @@ function Landing() {
   const navigate = useNavigate();
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
-  const [checkedStorage, setCheckedStorage] = useState(false);
+  const [previousBooth, setPreviousBooth] = useState<string | null>(null);
 
-  // Send a returning DJ straight back to their booth; the code stays invisible.
   useEffect(() => {
-    const last = recallEvent();
-    if (last) {
-      void navigate({ to: "/booth/$code", params: { code: last } });
-      return;
-    }
-    setCheckedStorage(true);
-  }, [navigate]);
+    setPreviousBooth(recallEvent());
+  }, []);
 
   const start = useMutation({
     mutationFn: () => createEvent({ data: { name } }),
@@ -63,16 +57,6 @@ function Landing() {
       return;
     }
     join.mutate(value);
-  }
-
-  if (!checkedStorage) {
-    return (
-      <PageShell>
-        <div className="flex min-h-[60vh] items-center justify-center">
-          <Loader2 className="size-5 animate-spin text-muted-foreground" />
-        </div>
-      </PageShell>
-    );
   }
 
   return (
@@ -115,6 +99,19 @@ function Landing() {
         )}
         Start the night
       </Button>
+      {previousBooth ? (
+        <p className="text-sm text-muted-foreground">
+          Continue your last booth?{" "}
+          <Link
+            to="/booth/$code"
+            params={{ code: previousBooth }}
+            className="text-foreground underline-offset-4 hover:underline"
+          >
+            Open it
+          </Link>
+          .
+        </p>
+      ) : null}
 
       <Separator />
 
