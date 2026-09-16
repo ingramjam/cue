@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { toPlaylistSeedRows } from "./playlist.server.ts";
 import { rankPlaylistUris } from "./playlist-rank.ts";
 
 test("rankPlaylistUris prefers higher scores and then earlier queue order", () => {
@@ -29,4 +30,62 @@ test("rankPlaylistUris ignores lower-ranked songs beyond the cap while preservin
   assert.equal(rankPlaylistUris(rows).length, 100);
   assert.equal(rankPlaylistUris(rows)[0], "spotify:track:1");
   assert.equal(rankPlaylistUris(rows)[99], "spotify:track:100");
+});
+
+test("toPlaylistSeedRows dedupes playlist tracks by normalized title and artist", () => {
+  const rows = toPlaylistSeedRows([
+    {
+      track: {
+        id: "one",
+        uri: "spotify:track:one",
+        name: "Take Me to the River",
+        duration_ms: 225000,
+        artists: [{ name: "Al Green" }],
+        album: { images: [{ url: "https://cdn.example/river.jpg", width: 300 }] },
+      },
+    },
+    {
+      track: {
+        id: "two",
+        uri: "spotify:track:two",
+        name: "Take Me to the River (Remastered)",
+        duration_ms: 226000,
+        artists: [{ name: "Al Green" }],
+        album: { images: [{ url: "https://cdn.example/river-2.jpg", width: 300 }] },
+      },
+    },
+    {
+      track: {
+        id: "three",
+        uri: "spotify:track:three",
+        name: "Love and Happiness",
+        duration_ms: 320000,
+        artists: [{ name: "Al Green" }],
+        album: { images: [{ url: "https://cdn.example/love.jpg", width: 300 }] },
+      },
+    },
+  ]);
+
+  assert.deepEqual(
+    rows.map((row) => ({
+      title: row.title,
+      artist: row.artist,
+      normalizedKey: row.normalizedKey,
+      spotifyTrackId: row.spotifyTrackId,
+    })),
+    [
+      {
+        title: "Take Me to the River",
+        artist: "Al Green",
+        normalizedKey: "takemetotheriver|algreen",
+        spotifyTrackId: "one",
+      },
+      {
+        title: "Love and Happiness",
+        artist: "Al Green",
+        normalizedKey: "loveandhappiness|algreen",
+        spotifyTrackId: "three",
+      },
+    ],
+  );
 });

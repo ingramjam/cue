@@ -88,6 +88,9 @@ export function SpotifyPanel() {
     refetchInterval: showDiagnostics ? 5000 : false,
   });
 
+  const connected = config.data?.connected ?? false;
+  const uri = redirectUri;
+
   const playlists = useQuery({
     queryKey: ["spotify-playlists", event.id],
     queryFn: () => listSpotifyPlaylists({ data: { eventId: event.id } }),
@@ -149,9 +152,6 @@ export function SpotifyPanel() {
         error instanceof Error ? error.message : "Could not start the Spotify connection.",
       ),
   });
-
-  const connected = config.data?.connected ?? false;
-  const uri = redirectUri;
 
   return (
     <Card>
